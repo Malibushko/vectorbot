@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    volumes:
+      - .:/code
+    ports:
+      - "${PORT}:5000"
+    depends_on:
+      - db
+  db:
+    image: mongo
+    restart: always
+    ports:
+      - "27017:27017"
