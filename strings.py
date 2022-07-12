@@ -21,12 +21,12 @@ MINUS_CREDIT_MESSAGES = [
         "Позор! {} {}!",
         "Прекратите. {} {}.",
         "Так и буржуем можно стать. {} {}.",
-        "...\n{} {}.",
+        "Плохо!\n{} {}.",
         "丟人現眼. Отобрать аниме жена. {} {}."
     ]
 
 def GetPointsMessageForPoints(points):
-    last_digit = points % 10
+    last_digit = abs(points) % 10
 
     if last_digit == 1:
         return "векторбалл"
@@ -40,34 +40,3 @@ def GetStringForPoints(points):
     message = random.choice(PLUS_CREDIT_MESSAGES) if points > 0 else random.choice(MINUS_CREDIT_MESSAGES)
 
     return message.format(points, GetPointsMessageForPoints(points))
-
-def GetStatusMessageForPoints(points):
-    if points == 0:
-        return "Новичок"
-
-    if points > 0 and points < 15:
-        return "Уважаемый человек"
-
-    if points >= 15 and points < 40:
-        return "Смешарик"
-
-    if points >= 40 and points < 100:
-        return "Член опергруппы НКВД по раскулачиванию"
-
-    if points > 100:
-        return "Программист на Расте"
-
-    if points > 1000:
-        return "(Вставить что-то смешное)"
-
-    if points < 0 and points > -10:
-        return "Расточитель"
-
-    if points <= -10 and points > -40:
-        return "Буржуй"
-
-    if points <= -100:
-        return "Стандартодрочер"
-
-    if points < -1000:
-        return "Келбон"

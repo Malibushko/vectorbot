@@ -22,6 +22,8 @@ BACKUP_CHANNEL_ID = int(os.environ.get('BACKUP_CHANNEL_ID', 0))
 
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
+DELTA_LIMIT = int(os.environ.get('DELTA_LIMIT'))
+
 try:
     BLACKLIST_ID = [int(i) for i in os.environ.get("BLACKLIST_ID").split(' ')]
 except:

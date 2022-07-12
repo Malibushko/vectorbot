@@ -6,7 +6,7 @@ from telegram import Update, Chat
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, db
+    FORWARD_UPDATE, DELTA_LIMIT, db
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,12 @@ def credit_message(update: Update, context: CallbackContext) -> None:
         if user.id in BLACKLIST_ID:
             value = -1
         elif message.from_user.id != SUPER_ADMIN_ID:
-            points = min(points, 100)
+            
+            if abs(points) > DELTA_LIMIT:
+                message.reply_text(f"Слишком много! Лимит на изменение - {DELTA_LIMIT} векторбаллов!\n")
+                return
+            
+            points = min(points, DELTA_LIMIT)
         points = value * points
         credit_dic.setdefault(user.id, {'name': user.first_name, 'points': 0})
         if message.from_user.id != SUPER_ADMIN_ID and message.from_user.id == user.id:
@@ -89,7 +94,7 @@ def my_credits_command(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': 0})
     points = context.chat_data[user.id]['points']
-    message.reply_text(f'У тебя {points} {strings.GetStringForPoints(points)}' if points != 0 else 'У тебя нет векторбаллов.')
+    message.reply_text(f'У тебя {points} {strings.GetPointsMessageForPoints(points)}' if points != 0 else 'У тебя нет векторбаллов.')
 
 
 def credits_command(update: Update, context: CallbackContext) -> None:
@@ -175,7 +180,7 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(
         ~Filters.user(user_id=BLACKLIST_ID) &
         Filters.text & ~Filters.command & Filters.reply & Filters.regex(
-            r'^([+-])(\d*) (векторбалл|векторбалла|векторбал|векторбала|векторбаллов|векторбалов)') & Filters.chat_type.groups,
+            r'([+-])(\d*) (векторбалл|векторбалла|векторбал|векторбала|векторбаллов|векторбалов)') & Filters.chat_type.groups,
         credit_message
     ))
     dispatcher.add_handler(MessageHandler(Filters.chat_type.private, private_message))
