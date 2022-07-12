@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEBUG = True #os.environ.get('DEBUG', 'False').lower() != 'False'.lower()
+DEBUG = os.environ.get('DEBUG', 'False').lower() != 'False'.lower()
 
 SAVE_UPDATE = os.environ.get('SAVE_UPDATE', 'False').lower() != 'False'.lower()
 
