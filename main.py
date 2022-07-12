@@ -164,7 +164,7 @@ def any_message(update, context):
 def main() -> None:
     persistence = PicklePersistence(filename='VectorCreditBot')
 
-    updater = Updater("5306267473:AAF6iJYqp7UKxjOmoSMWgaOBl7_Z2CDa2_Q", persistence=persistence)
+    updater = Updater(BOT_TOKEN, persistence=persistence)
 
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler('start', start_command))
