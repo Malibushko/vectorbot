@@ -14,7 +14,7 @@ FORWARD_UPDATE = os.environ.get('FORWARD_UPDATE', 'False').lower() != 'False'.lo
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-BOT_TOKEN = os.environ.get('TOKEN')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
 SUPER_ADMIN_ID = int(os.environ.get('SUPER_ADMIN_ID', 0))
 

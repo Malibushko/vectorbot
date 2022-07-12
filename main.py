@@ -89,7 +89,7 @@ def my_credits_command(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': 0})
     points = context.chat_data[user.id]['points']
-    message.reply_text(f'У тебя {points} {strings.GetStringForPoints(points)}}' if points != 0 else 'У тебя нет векторбаллов.')
+    message.reply_text(f'У тебя {points} {strings.GetStringForPoints(points)}' if points != 0 else 'У тебя нет векторбаллов.')
 
 
 def credits_command(update: Update, context: CallbackContext) -> None:
