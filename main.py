@@ -1,6 +1,8 @@
 import logging
+from tkinter import PhotoImage
 import strings
 import random 
+import requests
 
 from telegram import Update, Chat
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
@@ -84,7 +86,7 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             text = strings.GetStringForPoints(points)
 
     if not silence_mode:
-        message.reply_text(text)
+        message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
 
 
 def my_credits_command(update: Update, context: CallbackContext) -> None:
@@ -102,7 +104,7 @@ def credits_command(update: Update, context: CallbackContext) -> None:
         return
     message = update.effective_message
     if not message.reply_to_message:
-        message.reply_text(strings.ERROR_NO_REPLY)
+        my_credits_command(update, context)
         return
     user = message.reply_to_message.from_user
     if user.id == context.bot.id:
@@ -151,6 +153,13 @@ def rank_command(update: Update, context: CallbackContext) -> None:
         )
     message.reply_text(text)
 
+def cat_command(update: Update, context: CallbackContext):
+    message = update.effective_message
+    
+    img_data = requests.get("https://thiscatdoesnotexist.com/").content
+
+    message.reply_photo(photo = img_data)
+
 
 def private_message(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Работаю только в группах.')
@@ -173,14 +182,14 @@ def main() -> None:
 
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler('start', start_command))
-    dispatcher.add_handler(CommandHandler('mycredits', my_credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('credits', credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
+    dispatcher.add_handler(CommandHandler('cat', cat_command))
 
     dispatcher.add_handler(MessageHandler(
         ~Filters.user(user_id=BLACKLIST_ID) &
         Filters.text & ~Filters.command & Filters.reply & Filters.regex(
-            r'([+-])(\d*) (векторбалл|векторбалла|векторбал|векторбала|векторбаллов|векторбалов)') & Filters.chat_type.groups,
+            r'([+-])(\d*) (векторбалл|векторбалла|векторбал|векторбала|векторбаллов|векторбалов)'),
         credit_message
     ))
     dispatcher.add_handler(MessageHandler(Filters.chat_type.private, private_message))
