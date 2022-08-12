@@ -3,8 +3,9 @@ from tkinter import PhotoImage
 import strings
 import random 
 import requests
+import re
 
-from telegram import Update, Chat
+from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
@@ -59,6 +60,7 @@ def credit_message(update: Update, context: CallbackContext) -> None:
         else:
             text = strings.CREDIT_USER_BATTLE
     else:
+        currency = context.match.group(3)
         value = +1 if context.match.group(1) == '+' else -1
         if len(context.match.group(2)) > 0:
             points = int(context.match.group(2))
@@ -67,26 +69,38 @@ def credit_message(update: Update, context: CallbackContext) -> None:
         if user.id in BLACKLIST_ID:
             value = -1
         elif message.from_user.id != SUPER_ADMIN_ID:
-            
+
             if abs(points) > DELTA_LIMIT:
-                message.reply_text(f"Слишком много! Лимит на изменение - {DELTA_LIMIT} векторбаллов!\n")
+                message.reply_text(f"Слишком много! Лимит на изменение - {DELTA_LIMIT} {currency}баллов!\n")
                 return
             
             points = min(points, DELTA_LIMIT)
         points = value * points
-        credit_dic.setdefault(user.id, {'name': user.first_name, 'points': 0})
+        credit_dic.setdefault(user.id, {'name': user.first_name, 'points': {}})
+        credit_dic[user.id]['points'].setdefault(currency, 0)
         if message.from_user.id != SUPER_ADMIN_ID and message.from_user.id == user.id:
             if points > 0:
                 text = strings.CREDIT_BOT
             else:
-                credit_dic[user.id]['points'] -= points
+                credit_dic[user.id]['points'][currency] -= points
                 text = strings.CREDIT_MINUS_ITSELF
         else:
-            credit_dic[user.id]['points'] += points
-            text = strings.GetStringForPoints(points)
+            credit_dic[user.id]['points'][currency] += points
+            text = strings.GetStringForPoints(currency, points)
 
     if not silence_mode:
         message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
+
+
+def get_credits_string(user: User, context: CallbackContext) -> str:
+    context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': {}})
+    currencies = {}
+    for key, value in context.chat_data[user.id]['points'].items():
+        if value != 0:
+            currencies[key] = value
+    return " \n".join(
+            [f'{value} {key}{strings.GetPointsMessageForPoints(value)}' for key, value in currencies.items()]
+        ) if len(currencies) > 0 else None
 
 
 def my_credits_command(update: Update, context: CallbackContext) -> None:
@@ -94,9 +108,9 @@ def my_credits_command(update: Update, context: CallbackContext) -> None:
         return
     message = update.effective_message
     user = update.effective_user
-    context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': 0})
-    points = context.chat_data[user.id]['points']
-    message.reply_text(f'У тебя {points} {strings.GetPointsMessageForPoints(points)}' if points != 0 else 'У тебя нет векторбаллов.')
+    credits = get_credits_string(user, context)
+    message.reply_text(
+        str.format('У тебя:\n{}', credits) if credits is not None else 'У тебя нет баллов.')
 
 
 def credits_command(update: Update, context: CallbackContext) -> None:
@@ -110,20 +124,28 @@ def credits_command(update: Update, context: CallbackContext) -> None:
     if user.id == context.bot.id:
         message.reply_text(strings.CREDIT_BOT_INFO)
         return
-    context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': 0})
-    points = context.chat_data[user.id]['points']
+    credits = get_credits_string(user, context)
     message.reply_text(
-        f'У {user.first_name} {points} {strings.GetPointsMessageForPoints(points)}' if points != 0 else f'У {user.first_name} нет векторбаллов.')
+        str.format('У {}:\n{}', user.first_name, credits) if credits is not None else f'У {user.first_name} нет баллов.')
+
+
+def extract_currency(name: str) -> str:
+    m = re.search(r'([^\s]+)бал', name)
+    return name if m is None else m.group(1)
 
 
 def rank_command(update: Update, context: CallbackContext) -> None:
     if 'battle' in context.chat_data:
         return
+    currency = extract_currency(context.args[0]) if len(context.args) > 0 else strings.CREDIT_BOT_DEFAULT_CURRENCY
     message = update.effective_message
     leaderboard = []
     for key, value in context.chat_data.items():
-        if type(key) is int:
-            leaderboard.append((value['points'], value['name']))
+        if type(key) is not int:
+            continue
+        points = value['points'].get(currency, 0)
+        if points != 0:
+            leaderboard.append((points, value['name']))
     leaderboard.sort(reverse=True)
     if len(leaderboard) < 4:
         message.reply_text('Недостаточно людей для составления доски почета!')
@@ -132,23 +154,25 @@ def rank_command(update: Update, context: CallbackContext) -> None:
     worst = sorted(leaderboard[-3:])
     text = ''
 
-    text += 'Больше всего векторбаллов:\n'
+    text += f'Больше всего {currency}баллов:\n'
     if len(best) == 0:
         text += 'ни у кого!'
     for row in best:
-        text += '{} ➔ {} {}\n'.format(
+        text += '{} ➔ {} {}{}\n'.format(
             row[1],
             str(row[0]),
+            currency,
             strings.GetPointsMessageForPoints(abs(row[0]))
         )
 
-    text += '\nМеньше всего векторбаллов:\n'
+    text += f'\nМеньше всего {currency}баллов:\n'
     if len(worst) == 0:
         text += 'ни у кого!'
     for row in worst:
-        text += '{} ➔ {} {}\n'.format(
+        text += '{} ➔ {} {}{}\n'.format(
             row[1],
             str(row[0]),
+            currency,
             strings.GetPointsMessageForPoints(abs(row[0]))
         )
     message.reply_text(text)
@@ -189,7 +213,7 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(
         ~Filters.user(user_id=BLACKLIST_ID) &
         Filters.text & ~Filters.command & Filters.reply & Filters.regex(
-            r'([+-])(\d*) (векторбалл|векторбалла|векторбал|векторбала|векторбаллов|векторбалов)'),
+            r'([+-])(\d*) ([^\s]+)бал'),
         credit_message
     ))
     dispatcher.add_handler(MessageHandler(Filters.chat_type.private, private_message))
