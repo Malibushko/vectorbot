@@ -180,6 +180,26 @@ def rank_command(update: Update, context: CallbackContext) -> None:
         )
     message.reply_text(text)
 
+
+def top_currencies_command(update: Update, context: CallbackContext) -> None:
+    message = update.effective_message
+    currencies = {}
+    for key, value in context.chat_data.items():
+        if type(key) is not int:
+            continue
+        for currency in value['points'].keys():
+            currencies[currency] = currencies.get(currency, 0) + 1
+    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:4]
+    text = ''
+    for currency, points in currencies:
+        text += '{}баллы ➔ {} {}\n'.format(
+            currency,
+            points,
+            strings.GetHoldersMessageForHolders(abs(points))
+        )
+    message.reply_text(text)
+
+
 def cat_command(update: Update, context: CallbackContext):
     message = update.effective_message
     
@@ -211,6 +231,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler('start', start_command))
     dispatcher.add_handler(CommandHandler('credits', credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
+    dispatcher.add_handler(CommandHandler('top_currencies', top_currencies_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('cat', cat_command))
 
     dispatcher.add_handler(MessageHandler(

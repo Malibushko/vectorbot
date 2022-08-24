@@ -37,6 +37,17 @@ def GetPointsMessageForPoints(points):
     
     return "баллов"
 
+def GetHoldersMessageForHolders(holders):
+    last_digit = abs(holders) % 10
+
+    if last_digit == 1:
+        return "держатель"
+
+    if last_digit > 1 and last_digit <= 4:
+        return "держателя"
+    
+    return "держателей"
+
 def GetStringForPoints(currency, points):
     message = random.choice(PLUS_CREDIT_MESSAGES) if points > 0 else random.choice(MINUS_CREDIT_MESSAGES)
 
