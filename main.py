@@ -200,6 +200,18 @@ def top_currencies_command(update: Update, context: CallbackContext) -> None:
     message.reply_text(text)
 
 
+def maintenance_command(update: Update, context: CallbackContext) -> None:
+    message = update.effective_message
+    for key, value in context.chat_data.items():
+        if type(key) is not int:
+            continue
+        points = value.get('points', {})
+        for currency in list(points.keys()):
+            if len(currency) > MAX_CURRENCY_LEN:
+                points.pop(currency, None)
+    message.reply_text('Maintenance completed')
+
+
 def cat_command(update: Update, context: CallbackContext):
     message = update.effective_message
     
@@ -233,6 +245,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('top_currencies', top_currencies_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('cat', cat_command))
+    dispatcher.add_handler(CommandHandler('maintenance', maintenance_command, filters=Filters.user(user_id=SUPER_ADMIN_ID)))
 
     dispatcher.add_handler(MessageHandler(
         ~Filters.user(user_id=BLACKLIST_ID) &
