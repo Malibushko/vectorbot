@@ -9,7 +9,7 @@ from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, DELTA_LIMIT, db
+    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, db
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,9 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             text = strings.CREDIT_USER_BATTLE
     else:
         currency = context.match.group(3)
+        if len(currency) > MAX_CURRENCY_LEN:
+            message.reply_text(f"Слишком длинно! Лимит на длину - {MAX_CURRENCY_LEN} символов!\n")
+            return
         value = +1 if context.match.group(1) == '+' else -1
         if len(context.match.group(2)) > 0:
             points = int(context.match.group(2))
@@ -177,6 +180,38 @@ def rank_command(update: Update, context: CallbackContext) -> None:
         )
     message.reply_text(text)
 
+
+def top_currencies_command(update: Update, context: CallbackContext) -> None:
+    message = update.effective_message
+    currencies = {}
+    for key, value in context.chat_data.items():
+        if type(key) is not int:
+            continue
+        for currency in value['points'].keys():
+            currencies[currency] = currencies.get(currency, 0) + 1
+    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:4]
+    text = ''
+    for currency, points in currencies:
+        text += '{}баллы ➔ {} {}\n'.format(
+            currency,
+            points,
+            strings.GetHoldersMessageForHolders(abs(points))
+        )
+    message.reply_text(text)
+
+
+def maintenance_command(update: Update, context: CallbackContext) -> None:
+    message = update.effective_message
+    for key, value in context.chat_data.items():
+        if type(key) is not int:
+            continue
+        points = value.get('points', {})
+        for currency in list(points.keys()):
+            if len(currency) > MAX_CURRENCY_LEN:
+                points.pop(currency, None)
+    message.reply_text('Maintenance completed')
+
+
 def cat_command(update: Update, context: CallbackContext):
     message = update.effective_message
     
@@ -208,7 +243,9 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler('start', start_command))
     dispatcher.add_handler(CommandHandler('credits', credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
+    dispatcher.add_handler(CommandHandler('top_currencies', top_currencies_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('cat', cat_command))
+    dispatcher.add_handler(CommandHandler('maintenance', maintenance_command, filters=Filters.user(user_id=SUPER_ADMIN_ID)))
 
     dispatcher.add_handler(MessageHandler(
         ~Filters.user(user_id=BLACKLIST_ID) &

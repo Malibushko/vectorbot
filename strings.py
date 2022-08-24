@@ -26,16 +26,23 @@ MINUS_CREDIT_MESSAGES = [
         "丟人現眼. Отобрать аниме жена. {} {}{}."
     ]
 
-def GetPointsMessageForPoints(points):
-    last_digit = abs(points) % 10
+def GetDeclination(number, cases):
+    last_digit = abs(number) % 10
+    last_ten = abs(number) % 100
 
-    if last_digit == 1:
-        return "балл"
+    if last_digit == 1 and (last_ten < 10 or last_ten > 20):
+        return cases[0]
 
-    if last_digit > 1 and last_digit <= 4:
-        return "балла"
+    if last_digit > 1 and last_digit <= 4 and (last_ten < 10 or last_ten > 20):
+        return cases[1]
     
-    return "баллов"
+    return cases[2]
+
+def GetPointsMessageForPoints(points):
+    return GetDeclination(points, ['балл', 'балла', 'баллов'])
+
+def GetHoldersMessageForHolders(holders):
+    return GetDeclination(holders, ['держатель', 'держателя', 'держателей'])
 
 def GetStringForPoints(currency, points):
     message = random.choice(PLUS_CREDIT_MESSAGES) if points > 0 else random.choice(MINUS_CREDIT_MESSAGES)

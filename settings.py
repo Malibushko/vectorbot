@@ -24,6 +24,8 @@ WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
 DELTA_LIMIT = int(os.environ.get('DELTA_LIMIT'))
 
+MAX_CURRENCY_LEN = int(os.environ.get('MAX_CURRENCY_LEN'))
+
 try:
     BLACKLIST_ID = [int(i) for i in os.environ.get("BLACKLIST_ID").split(' ')]
 except:
