@@ -9,7 +9,7 @@ from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, DELTA_LIMIT, db
+    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, db
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,9 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             text = strings.CREDIT_USER_BATTLE
     else:
         currency = context.match.group(3)
+        if len(currency) > MAX_CURRENCY_LEN:
+            message.reply_text(f"Слишком длинно! Лимит на длину - {MAX_CURRENCY_LEN} символов!\n")
+            return
         value = +1 if context.match.group(1) == '+' else -1
         if len(context.match.group(2)) > 0:
             points = int(context.match.group(2))
