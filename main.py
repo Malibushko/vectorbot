@@ -4,15 +4,17 @@ import strings
 import random 
 import requests
 import re
+import pymongo
 
 from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, MAX_BALLS_ROWS, db
+    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, MAX_BALLS_ROWS, MONGODB_HOST, MONGODB_USER, MONGODB_PASS, db
 
 logger = logging.getLogger(__name__)
-
+mongoClient = pymongo.MongoClient(f'mongodb://{MONGODB_USER}:{MONGODB_PASS}@{MONGODB_HOST}/')
+mongoDB = mongoClient.vectorbot
 
 def save_update(f):
     def g(update: Update, context: CallbackContext):
@@ -46,7 +48,6 @@ def start_command(update: Update, context: CallbackContext) -> None:
 def credit_message(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
     user = message.reply_to_message.from_user
-    credit_dic = context.chat_data
     if user.is_bot:
         if user.id == context.bot.id:
             text = strings.CREDIT_BOT_BATTLE
@@ -72,25 +73,23 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             
             points = min(points, DELTA_LIMIT)
         points = value * points
-        credit_dic.setdefault(user.id, {'name': user.first_name, 'points': {}})
-        credit_dic[user.id]['points'].setdefault(currency, 0)
         if message.from_user.id != SUPER_ADMIN_ID and message.from_user.id == user.id:
             if points > 0:
                 text = strings.CREDIT_BOT
             else:
-                credit_dic[user.id]['points'][currency] -= points
+                mongoDB.users.update_one({'_id': user.id}, {'$set': {'name': user.first_name}, '$inc': {f'points.{currency}': -points}}, upsert=True)
                 text = strings.CREDIT_MINUS_ITSELF
         else:
-            credit_dic[user.id]['points'][currency] += points
+            mongoDB.users.update_one({'_id': user.id}, {'$set': {'name': user.first_name}, '$inc': {f'points.{currency}': points}}, upsert=True)
             text = strings.GetStringForPoints(currency, points)
 
     message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
 
 
 def get_credits_string(user: User, context: CallbackContext) -> str:
-    context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': {}})
     currencies = {}
-    for key, value in context.chat_data[user.id]['points'].items():
+    user = mongoDB.users.find_one({"_id": user.id}) or {'points': {}}
+    for key, value in user['points'].items():
         if value != 0:
             currencies[key] = value
     return " \n".join(
@@ -129,12 +128,10 @@ def rank_command(update: Update, context: CallbackContext) -> None:
     currency = extract_currency(context.args[0]) if len(context.args) > 0 else strings.CREDIT_BOT_DEFAULT_CURRENCY
     message = update.effective_message
     leaderboard = []
-    for key, value in context.chat_data.items():
-        if type(key) is not int:
-            continue
-        points = value['points'].get(currency, 0)
+    for doc in mongoDB.users.find():
+        points = doc['points'].get(currency, 0)
         if points != 0:
-            leaderboard.append((points, value['name']))
+            leaderboard.append((points, doc['name']))
     leaderboard.sort(reverse=True)
     if len(leaderboard) < 4:
         message.reply_text('Недостаточно людей для составления доски почета!')
@@ -174,10 +171,8 @@ def balls_command(update: Update, context: CallbackContext) -> None:
         message.reply_text(f'Введите число от 1 до {MAX_BALLS_ROWS}!')
         return
     currencies = {}
-    for key, value in context.chat_data.items():
-        if type(key) is not int:
-            continue
-        for currency in value['points'].keys():
+    for doc in mongoDB.users.find():
+        for currency in doc['points'].keys():
             currencies[currency] = currencies.get(currency, 0) + 1
     currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:count]
     text = ''
