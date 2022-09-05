@@ -181,7 +181,7 @@ def rank_command(update: Update, context: CallbackContext) -> None:
     message.reply_text(text)
 
 
-def top_currencies_command(update: Update, context: CallbackContext) -> None:
+def balls_command(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
     currencies = {}
     for key, value in context.chat_data.items():
@@ -243,7 +243,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler('start', start_command))
     dispatcher.add_handler(CommandHandler('credits', credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
-    dispatcher.add_handler(CommandHandler('top_currencies', top_currencies_command, filters=Filters.chat_type.groups))
+    dispatcher.add_handler(CommandHandler('balls', balls_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('cat', cat_command))
     dispatcher.add_handler(CommandHandler('maintenance', maintenance_command, filters=Filters.user(user_id=SUPER_ADMIN_ID)))
 
