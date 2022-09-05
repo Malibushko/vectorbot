@@ -26,6 +26,8 @@ DELTA_LIMIT = int(os.environ.get('DELTA_LIMIT'))
 
 MAX_CURRENCY_LEN = int(os.environ.get('MAX_CURRENCY_LEN'))
 
+MAX_BALLS_ROWS = int(os.environ.get('MAX_BALLS_ROWS'))
+
 try:
     BLACKLIST_ID = [int(i) for i in os.environ.get("BLACKLIST_ID").split(' ')]
 except:

@@ -9,7 +9,7 @@ from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, db
+    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, MAX_BALLS_ROWS, db
 
 logger = logging.getLogger(__name__)
 
@@ -183,13 +183,17 @@ def rank_command(update: Update, context: CallbackContext) -> None:
 
 def balls_command(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
+    count = (int(context.args[0]) if context.args[0].isdigit() else None) if len(context.args) > 0 else 4
+    if count is None or count < 1 or count > MAX_BALLS_ROWS:
+        message.reply_text(f'Введите число от 1 до {MAX_BALLS_ROWS}!')
+        return
     currencies = {}
     for key, value in context.chat_data.items():
         if type(key) is not int:
             continue
         for currency in value['points'].keys():
             currencies[currency] = currencies.get(currency, 0) + 1
-    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:4]
+    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:count]
     text = ''
     for currency, points in currencies:
         text += '{}баллы ➔ {} {}\n'.format(
