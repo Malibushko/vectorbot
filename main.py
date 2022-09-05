@@ -46,14 +46,7 @@ def start_command(update: Update, context: CallbackContext) -> None:
 def credit_message(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
     user = message.reply_to_message.from_user
-    context.chat_data.setdefault('silence', False)
-    silence_mode = context.chat_data['silence']
-    if 'battle' in context.chat_data:
-        context.chat_data.setdefault('battle', {})
-        credit_dic = context.chat_data['battle']
-        silence_mode = True
-    else:
-        credit_dic = context.chat_data
+    credit_dic = context.chat_data
     if user.is_bot:
         if user.id == context.bot.id:
             text = strings.CREDIT_BOT_BATTLE
@@ -91,8 +84,7 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             credit_dic[user.id]['points'][currency] += points
             text = strings.GetStringForPoints(currency, points)
 
-    if not silence_mode:
-        message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
+    message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
 
 
 def get_credits_string(user: User, context: CallbackContext) -> str:
@@ -107,8 +99,6 @@ def get_credits_string(user: User, context: CallbackContext) -> str:
 
 
 def my_credits_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     message = update.effective_message
     user = update.effective_user
     credits = get_credits_string(user, context)
@@ -117,8 +107,6 @@ def my_credits_command(update: Update, context: CallbackContext) -> None:
 
 
 def credits_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     message = update.effective_message
     if not message.reply_to_message:
         my_credits_command(update, context)
@@ -138,8 +126,6 @@ def extract_currency(name: str) -> str:
 
 
 def rank_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     currency = extract_currency(context.args[0]) if len(context.args) > 0 else strings.CREDIT_BOT_DEFAULT_CURRENCY
     message = update.effective_message
     leaderboard = []
