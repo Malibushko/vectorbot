@@ -1,7 +1,5 @@
 import logging
-from tkinter import PhotoImage
 import strings
-import random 
 import requests
 import re
 import pymongo
