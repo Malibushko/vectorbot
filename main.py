@@ -39,7 +39,8 @@ def start_command(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     message = update.message
     if message.chat.type == Chat.PRIVATE:
-        message.reply_markdown_v2(strings.START_STRING_PRIVATE_CHAT)
+        message.reply_text(str(user.id))
+        #message.reply_markdown_v2(strings.START_STRING_PRIVATE_CHAT)
     else:
         message.reply_text(strings.START_STRING_CHAT)
 
@@ -190,10 +191,10 @@ def maintenance_command(update: Update, context: CallbackContext) -> None:
     for key, value in context.chat_data.items():
         if type(key) is not int:
             continue
-        points = value.get('points', {})
-        for currency in list(points.keys()):
-            if len(currency) > MAX_CURRENCY_LEN:
-                points.pop(currency, None)
+        try:
+            mongoDB.users.update_one({'_id': key}, {'$set': {'name': value['name'], 'points': value['points']}}, upsert=True)
+        except:
+            logger.warning("Failed to insert " + str({'_id': key}) + " " + str({'$set': {'name': value['name'], 'points': value['points']}}))
     message.reply_text('Maintenance completed')
 
 
