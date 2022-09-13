@@ -26,6 +26,14 @@ DELTA_LIMIT = int(os.environ.get('DELTA_LIMIT'))
 
 MAX_CURRENCY_LEN = int(os.environ.get('MAX_CURRENCY_LEN'))
 
+MAX_BALLS_ROWS = int(os.environ.get('MAX_BALLS_ROWS'))
+
+MONGODB_HOST = os.environ.get('MONGODB_HOST')
+
+MONGODB_USER = os.environ.get('MONGODB_USER')
+
+MONGODB_PASS = os.environ.get('MONGODB_PASS')
+
 try:
     BLACKLIST_ID = [int(i) for i in os.environ.get("BLACKLIST_ID").split(' ')]
 except:

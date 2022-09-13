@@ -1,18 +1,18 @@
 import logging
-from tkinter import PhotoImage
 import strings
-import random 
 import requests
 import re
+import pymongo
 
 from telegram import Update, Chat, User
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, PicklePersistence
 
 from settings import BOT_TOKEN, SUPER_ADMIN_ID, DEBUG, WEBHOOK_URL, BLACKLIST_ID, BACKUP_CHANNEL_ID, SAVE_UPDATE, \
-    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, db
+    FORWARD_UPDATE, DELTA_LIMIT, MAX_CURRENCY_LEN, MAX_BALLS_ROWS, MONGODB_HOST, MONGODB_USER, MONGODB_PASS, db
 
 logger = logging.getLogger(__name__)
-
+mongoClient = pymongo.MongoClient(f'mongodb://{MONGODB_USER}:{MONGODB_PASS}@{MONGODB_HOST}/')
+mongoDB = mongoClient.vectorbot
 
 def save_update(f):
     def g(update: Update, context: CallbackContext):
@@ -37,7 +37,8 @@ def start_command(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     message = update.message
     if message.chat.type == Chat.PRIVATE:
-        message.reply_markdown_v2(strings.START_STRING_PRIVATE_CHAT)
+        message.reply_text(str(user.id))
+        #message.reply_markdown_v2(strings.START_STRING_PRIVATE_CHAT)
     else:
         message.reply_text(strings.START_STRING_CHAT)
 
@@ -46,14 +47,6 @@ def start_command(update: Update, context: CallbackContext) -> None:
 def credit_message(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
     user = message.reply_to_message.from_user
-    context.chat_data.setdefault('silence', False)
-    silence_mode = context.chat_data['silence']
-    if 'battle' in context.chat_data:
-        context.chat_data.setdefault('battle', {})
-        credit_dic = context.chat_data['battle']
-        silence_mode = True
-    else:
-        credit_dic = context.chat_data
     if user.is_bot:
         if user.id == context.bot.id:
             text = strings.CREDIT_BOT_BATTLE
@@ -79,26 +72,23 @@ def credit_message(update: Update, context: CallbackContext) -> None:
             
             points = min(points, DELTA_LIMIT)
         points = value * points
-        credit_dic.setdefault(user.id, {'name': user.first_name, 'points': {}})
-        credit_dic[user.id]['points'].setdefault(currency, 0)
         if message.from_user.id != SUPER_ADMIN_ID and message.from_user.id == user.id:
             if points > 0:
                 text = strings.CREDIT_BOT
             else:
-                credit_dic[user.id]['points'][currency] -= points
+                mongoDB.users.update_one({'_id': user.id}, {'$set': {'name': user.first_name}, '$inc': {f'points.{currency}': -points}}, upsert=True)
                 text = strings.CREDIT_MINUS_ITSELF
         else:
-            credit_dic[user.id]['points'][currency] += points
+            mongoDB.users.update_one({'_id': user.id}, {'$set': {'name': user.first_name}, '$inc': {f'points.{currency}': points}}, upsert=True)
             text = strings.GetStringForPoints(currency, points)
 
-    if not silence_mode:
-        message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
+    message.reply_text(text, reply_to_message_id = message.reply_to_message.message_id)
 
 
 def get_credits_string(user: User, context: CallbackContext) -> str:
-    context.chat_data.setdefault(user.id, {'name': user.first_name, 'points': {}})
     currencies = {}
-    for key, value in context.chat_data[user.id]['points'].items():
+    user = mongoDB.users.find_one({"_id": user.id}) or {'points': {}}
+    for key, value in user['points'].items():
         if value != 0:
             currencies[key] = value
     return " \n".join(
@@ -107,8 +97,6 @@ def get_credits_string(user: User, context: CallbackContext) -> str:
 
 
 def my_credits_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     message = update.effective_message
     user = update.effective_user
     credits = get_credits_string(user, context)
@@ -117,8 +105,6 @@ def my_credits_command(update: Update, context: CallbackContext) -> None:
 
 
 def credits_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     message = update.effective_message
     if not message.reply_to_message:
         my_credits_command(update, context)
@@ -138,17 +124,13 @@ def extract_currency(name: str) -> str:
 
 
 def rank_command(update: Update, context: CallbackContext) -> None:
-    if 'battle' in context.chat_data:
-        return
     currency = extract_currency(context.args[0]) if len(context.args) > 0 else strings.CREDIT_BOT_DEFAULT_CURRENCY
     message = update.effective_message
     leaderboard = []
-    for key, value in context.chat_data.items():
-        if type(key) is not int:
-            continue
-        points = value['points'].get(currency, 0)
+    for doc in mongoDB.users.find():
+        points = doc['points'].get(currency, 0)
         if points != 0:
-            leaderboard.append((points, value['name']))
+            leaderboard.append((points, doc['name']))
     leaderboard.sort(reverse=True)
     if len(leaderboard) < 4:
         message.reply_text('Недостаточно людей для составления доски почета!')
@@ -181,15 +163,17 @@ def rank_command(update: Update, context: CallbackContext) -> None:
     message.reply_text(text)
 
 
-def top_currencies_command(update: Update, context: CallbackContext) -> None:
+def balls_command(update: Update, context: CallbackContext) -> None:
     message = update.effective_message
+    count = (int(context.args[0]) if context.args[0].isdigit() else None) if len(context.args) > 0 else 4
+    if count is None or count < 1 or count > MAX_BALLS_ROWS:
+        message.reply_text(f'Введите число от 1 до {MAX_BALLS_ROWS}!')
+        return
     currencies = {}
-    for key, value in context.chat_data.items():
-        if type(key) is not int:
-            continue
-        for currency in value['points'].keys():
+    for doc in mongoDB.users.find():
+        for currency in doc['points'].keys():
             currencies[currency] = currencies.get(currency, 0) + 1
-    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:4]
+    currencies = sorted(currencies.items(), reverse=True, key=lambda item: item[1])[:count]
     text = ''
     for currency, points in currencies:
         text += '{}баллы ➔ {} {}\n'.format(
@@ -205,10 +189,10 @@ def maintenance_command(update: Update, context: CallbackContext) -> None:
     for key, value in context.chat_data.items():
         if type(key) is not int:
             continue
-        points = value.get('points', {})
-        for currency in list(points.keys()):
-            if len(currency) > MAX_CURRENCY_LEN:
-                points.pop(currency, None)
+        try:
+            mongoDB.users.update_one({'_id': key}, {'$set': {'name': value['name'], 'points': value['points']}}, upsert=True)
+        except:
+            logger.warning("Failed to insert " + str({'_id': key}) + " " + str({'$set': {'name': value['name'], 'points': value['points']}}))
     message.reply_text('Maintenance completed')
 
 
@@ -243,7 +227,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler('start', start_command))
     dispatcher.add_handler(CommandHandler('credits', credits_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('rank', rank_command, filters=Filters.chat_type.groups))
-    dispatcher.add_handler(CommandHandler('top_currencies', top_currencies_command, filters=Filters.chat_type.groups))
+    dispatcher.add_handler(CommandHandler('balls', balls_command, filters=Filters.chat_type.groups))
     dispatcher.add_handler(CommandHandler('cat', cat_command))
     dispatcher.add_handler(CommandHandler('maintenance', maintenance_command, filters=Filters.user(user_id=SUPER_ADMIN_ID)))
 
