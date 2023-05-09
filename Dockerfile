@@ -2,7 +2,7 @@
 FROM python:3.8-slim-buster
 
 RUN apt-get update
-RUN apt-get install -y python3-tk
+RUN apt-get install -y python3-tk gcc
 
 WORKDIR /code
 
